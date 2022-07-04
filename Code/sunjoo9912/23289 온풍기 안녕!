@@ -1,0 +1,310 @@
+#include <algorithm>
+#include <vector>
+#include <set>
+#include <queue>
+#include <iostream>
+using namespace std;
+
+int dirR[4] = { 0, 0, -1, +1 };
+int dirC[4] = { 1, -1, 0, 0 };
+
+bool inRange(int R, int C, int x, int y) {
+	if (x < 0 || x >= R) return false;
+	if (y < 0 || y >= C) return false;
+	return true;
+}
+
+int main() {
+	ios_base::sync_with_stdio(false);
+	cin.tie(NULL); cout.tie(NULL);
+
+	int R, C, K;
+	cin >> R >> C >> K;
+
+	//방 정보 저장
+	vector<vector<int>> room(R, vector<int>(C, 0));
+	//방 온도 저장
+	vector<vector<int>> roomTemp(R, vector<int>(C, 0));
+	//온풍기 위치
+	vector<pair<int, int>> heaters;
+	//조사해야하는 방 위치 
+	vector<pair<int, int>> checkRooms;
+
+	for (int i = 0; i < R; ++i) {
+		for (int j = 0; j < C; ++j) {
+			cin >> room[i][j];
+
+			if (room[i][j] > 0 && room[i][j] < 5)
+				heaters.push_back({ i,j });
+			else if (room[i][j] == 5)
+				checkRooms.push_back({ i, j });
+		}
+	}
+	
+	//벽 정보 저장
+	//(x,y) (x-1,y) 벽
+	set<pair<int, int>> upWalls;
+	//(x,y) (x,y+1) 벽
+	set<pair<int, int>> rightWalls;
+	
+	int W;
+	cin >> W;
+	for (int i = 0; i < W; ++i) {
+		int x, y, t;
+		cin >> x >> y >> t;
+
+		if (t == 0) upWalls.insert({ x-1,y-1 });
+		else rightWalls.insert({ x-1,y-1 });
+	}
+
+	int chocolate = 0;
+	while (true) {
+		//1. 모든 온풍기에서 바람 나옴
+		for (int i = 0; i < heaters.size(); ++i) {
+			int hX = heaters[i].first; 
+			int hY = heaters[i].second;
+			int hDir = room[hX][hY];
+
+			//온풍기 바로 앞 좌표(온도 5 증가)
+			int adjX = hX + dirR[hDir - 1];
+			int adjY = hY + dirC[hDir - 1];
+
+			//온풍기가 있는 칸과 바람이 나오는 방향에 있는 칸 사이에는 벽이 없다.
+			//온풍기의 바람이 나오는 방향에 있는 칸은 항상 존재한다.
+
+			/*
+			if (!inRange(R, C, adjX, adjY)) continue;
+
+			//온풍기 방향 벽 있는지 검사
+			//오른쪽
+			if (hDir == 1 && rightWalls.find({ hX, hY }) != rightWalls.end()) continue;
+			//왼쪽
+			else if (hDir == 2 && rightWalls.find({ adjX, adjY }) != rightWalls.end()) continue;
+			//위
+			else if (hDir == 3 && (upWalls.find({ hX, hY }) != upWalls.end())) continue;
+			//아래
+			else if (hDir == 4 && (upWalls.find({ adjX, adjY }) != upWalls.end())) continue;
+			*/
+
+			vector<vector<int>> tempChange(R, vector<int>(C, 0));
+
+			queue < pair<int, pair<int, int>>> wind;
+			wind.push({ 5, {adjX, adjY} });
+
+			while (!wind.empty()) {
+				int curTemp = wind.front().first;
+				int curX = wind.front().second.first;
+				int curY = wind.front().second.second;
+				wind.pop();
+
+				if (tempChange[curX][curY] != 0) continue;
+				tempChange[curX][curY] = curTemp;
+
+				if (curTemp == 1) continue;
+
+				//온풍기 방향에 따른 바람 이동 방향
+				int nextX, nextY;
+				//오른쪽
+				if (hDir == 1) {
+					//x,y -> x-1,y+1
+					nextX = curX - 1;
+					nextY = curY + 1;
+					if (inRange(R, C, nextX,nextY)) {
+						if (upWalls.find({ curX, curY }) == upWalls.end() && rightWalls.find({ curX - 1, curY }) == rightWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+
+					//x,y -> x,y+1
+					nextX = curX;
+					nextY = curY + 1;
+					if (inRange(R, C, nextX, nextY)) {
+						if (rightWalls.find({ curX, curY }) == rightWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+
+					//x,y -> x+1, y+1
+					nextX = curX + 1;
+					nextY = curY + 1;
+					if (inRange(R, C, nextX, nextY)) {
+						if (upWalls.find({ curX + 1, curY }) == upWalls.end() && rightWalls.find({ curX + 1, curY }) == rightWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+				}
+				//왼쪽
+				else if (hDir == 2) {
+					//x,y -> x-1,y-1
+					nextX = curX - 1;
+					nextY = curY - 1;
+					if (inRange(R, C, nextX, nextY)) {
+						if (upWalls.find({ curX, curY }) == upWalls.end() && rightWalls.find({ curX - 1, curY -1}) == rightWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+
+					//x,y -> x,y-1
+					nextX = curX;
+					nextY = curY - 1;
+					if (inRange(R, C, nextX, nextY)) {
+						if (rightWalls.find({ curX, curY -1}) == rightWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+
+					//x,y -> x+1, y-1
+					nextX = curX + 1;
+					nextY = curY - 1;
+					if (inRange(R, C, nextX, nextY)) {
+						if (upWalls.find({ curX + 1, curY }) == upWalls.end() && rightWalls.find({ curX + 1, curY -1}) == rightWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+				}
+				//위
+				else if (hDir == 3) {
+					//x,y -> x-1,y-1
+					nextX = curX - 1;
+					nextY = curY - 1;
+					if (inRange(R, C, nextX, nextY)) {
+						if (upWalls.find({ curX, curY -1}) == upWalls.end() && rightWalls.find({ curX, curY -1}) == rightWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+
+					//x,y -> x-1,y
+					nextX = curX -1;
+					nextY = curY;
+					if (inRange(R, C, nextX, nextY)) {
+						if (upWalls.find({ curX, curY }) == upWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+
+					//x,y -> x-1, y+1
+					nextX = curX - 1;
+					nextY = curY + 1;
+					if (inRange(R, C, nextX, nextY)) {
+						if (upWalls.find({ curX, curY +1}) == upWalls.end() && rightWalls.find({ curX , curY }) == rightWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+				}
+				//아래
+				else if (hDir == 4) {
+					//x,y -> x+1,y-1
+					nextX = curX + 1;
+					nextY = curY - 1;
+					if (inRange(R, C, nextX, nextY)) {
+						if (upWalls.find({ curX +1, curY-1 }) == upWalls.end() && rightWalls.find({ curX , curY-1 }) == rightWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+
+					//x,y -> x+1,y
+					nextX = curX + 1;
+					nextY = curY;
+					if (inRange(R, C, nextX, nextY)) {
+						if (upWalls.find({ curX +1, curY }) == upWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+
+					//x,y -> x+1, y+1
+					nextX = curX + 1;
+					nextY = curY + 1;
+					if (inRange(R, C, nextX, nextY)) {
+						if (upWalls.find({ curX + 1, curY +1 }) == upWalls.end() && rightWalls.find({ curX , curY }) == rightWalls.end())
+							wind.push({ curTemp - 1, {nextX, nextY} });
+					}
+				}
+			}
+
+			for (int i = 0; i < R; ++i) {
+				for (int j = 0; j < C; ++j) {
+					roomTemp[i][j] += tempChange[i][j];
+				}
+			}
+		}
+	
+
+		//2. 온도 조절됨
+		vector<vector<int>> visited(R, vector<int>(C, 0));
+		vector<vector<int>> tempChange(R, vector<int>(C, 0));
+
+		for (int r = 0; r < R; ++r) {
+			for (int c = 0; c < C; ++c) {
+				visited[r][c] = 1;
+
+				for (int dir = 1; dir <= 4; dir++) {
+					int adjR = r + dirR[dir - 1];
+					int adjC = c + dirC[dir - 1];
+
+					if (!inRange(R, C, adjR, adjC) || visited[adjR][adjC]) continue;
+
+					//방향 벽 있는지 검사
+					//오른쪽
+					if (dir == 1 && (rightWalls.find({ r, c }) != rightWalls.end())) continue;
+					//왼쪽
+					else if (dir == 2 && (rightWalls.find({ adjR, adjC }) != rightWalls.end())) continue;
+					//위
+					else if (dir == 3 && (upWalls.find({ r, c }) != upWalls.end())) continue;
+					//아래
+					else if (dir == 4 && (upWalls.find({ adjR, adjC }) != upWalls.end())) continue;
+
+
+					if (roomTemp[r][c] > roomTemp[adjR][adjC]) {
+						int temp = (roomTemp[r][c] - roomTemp[adjR][adjC]) / 4;
+
+						tempChange[r][c] -= temp;
+						tempChange[adjR][adjC] += temp;
+					}
+					else if (roomTemp[r][c] < roomTemp[adjR][adjC]) {
+						int temp = (roomTemp[adjR][adjC] - roomTemp[r][c]) / 4;
+
+						tempChange[r][c] += temp;
+						tempChange[adjR][adjC] -= temp;
+					}
+				}
+			}
+
+		}
+
+		for (int i = 0; i < R; ++i) {
+			for (int j = 0; j < C; ++j) {
+				roomTemp[i][j] = roomTemp[i][j] + tempChange[i][j];
+			}
+		}
+
+		//3. 온도 1이상인 가장 바깥쪽 칸 온도 1씩 감소
+		//네 모서리 제외 for문으로 계산
+		for (int c = 1; c < C-1; ++c) {
+			//0행
+			if (roomTemp[0][c] > 0) roomTemp[0][c]--;
+			//R-1행
+			if (roomTemp[R - 1][c] > 0) roomTemp[R - 1][c]--;
+		}
+		for (int r = 1; r < R-1; ++r) {
+			//0열
+			if (roomTemp[r][0] > 0) roomTemp[r][0] --;
+			//C-1열
+			if (roomTemp[r][C - 1] > 0)roomTemp[r][C - 1]--;
+		}
+
+		//네 모서리 계산
+		if (roomTemp[0][0] > 0) roomTemp[0][0]--;
+		if (roomTemp[0][C-1] > 0) roomTemp[0][C-1]--;
+		if (roomTemp[R-1][0] > 0) roomTemp[R-1][0]--;
+		if (roomTemp[R-1][C-1] > 0) roomTemp[R-1][C-1]--;
+
+		//4. 초콜릿 먹음
+		chocolate++;
+		//먹는 초콜릿의 개수가 100을 넘어가면 101을 출력한다
+		if (chocolate > 100) break;
+
+		//5. 조사하는 모든 칸의 온도 K이상 되었는지 검사 
+		bool overK = true;
+		for (int i = 0; i < checkRooms.size(); ++i) {
+			int x = checkRooms[i].first;
+			int y = checkRooms[i].second;
+			if (roomTemp[x][y] < K) {
+				overK = false;
+				break;
+			}
+		}
+		if (overK) break;
+	}
+
+	cout << chocolate;
+	return 0;
+}
